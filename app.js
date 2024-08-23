@@ -30,6 +30,7 @@ app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: true }));
 app.use(imageParser);
 app.use(express.static(path.join(__dirname, "public")));
+app.use("/images", express.static(path.join(__dirname, "images")));
 
 app.use(cookieParser());
 app.use(session);
@@ -49,7 +50,7 @@ app.use(globalErrorHandler);
 mongoose
   .connect(MONGODB_URI)
   .then(result => {
-    app.listen(3000);
+    app.listen(process.env.PORT);
   })
   .catch(err => {
     console.log(err);

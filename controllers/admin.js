@@ -153,7 +153,7 @@ exports.postDeleteProduct = (req, res, next) => {
   const prodId = req.body.productId;
   Product.deleteOne({
     _id: prodId,
-    userId: req.user_id,
+    userId: req.user._id,
   })
     .then(() => {
       console.log("PRODUCT DELETED!");
