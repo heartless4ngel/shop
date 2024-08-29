@@ -1,6 +1,8 @@
 const fs = require("fs");
 const path = require("path");
 
+const PDFDocument = require("pdfkit");
+
 const Product = require("../models/product");
 const Order = require("../models/order");
 const CustomError = require("../utils/CustomError.js");
@@ -130,19 +132,49 @@ exports.getInvoice = (req, res, next) => {
       const invoiceName = "invoice-" + orderId + ".pdf";
       const invoicePath = path.join("data", "invoices", invoiceName);
 
-      const options = {
-        root: ".",
-        headers: {
-          "Content-Type": "application/pdf",
-          "Content-Disposition": 'inline; filename="' + invoiceName + '"',
-          // "Content-Disposition": 'attachment; filename="' + invoiceName + '"',
-        },
-      };
-      res.sendFile(invoicePath, options, err => {
-        if (err) {
-          return next(new CustomError(err.message));
-        }
+      const pdfDoc = new PDFDocument();
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        'inline; filename="' + invoiceName + '"'
+      );
+      pdfDoc.pipe(fs.createWriteStream(invoicePath));
+      pdfDoc.pipe(res);
+
+      pdfDoc.fontSize(26).text("Invoice", { underline: true });
+      pdfDoc.text("______________________");
+      let totalPrice = 0;
+      order.products.forEach(prod => {
+        totalPrice += prod.quantity * prod.product.price;
+        pdfDoc
+          .fontSize(14)
+          .text(
+            prod.product.title +
+              " - " +
+              prod.quantity +
+              " x " +
+              "$" +
+              prod.product.price
+          );
       });
+      pdfDoc.fontSize(26).text("________");
+      pdfDoc.fontSize(20).text("Total price: $" + totalPrice);
+
+      pdfDoc.end();
+
+      // const options = {
+      //   root: ".",
+      //   headers: {
+      //     "Content-Type": "application/pdf",
+      //     "Content-Disposition": 'inline; filename="' + invoiceName + '"',
+      //     // "Content-Disposition": 'attachment; filename="' + invoiceName + '"',
+      //   },
+      // };
+      // res.sendFile(invoicePath, options, err => {
+      //   if (err) {
+      //     return next(new CustomError(err.message));
+      //   }
+      // });
     })
     .catch(err => next(err));
 };
