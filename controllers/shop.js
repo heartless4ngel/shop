@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 
 const PDFDocument = require("pdfkit");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const Product = require("../models/product");
 const Order = require("../models/order");
@@ -18,7 +19,9 @@ exports.getProducts = (req, res, next) => {
         path: "/products",
       });
     })
-    .catch(err => console.log(err));
+    .catch(err => {
+      return next(new CustomError(err.message));
+    });
 };
 
 exports.getProduct = (req, res, next) => {
@@ -32,7 +35,9 @@ exports.getProduct = (req, res, next) => {
         path: "/products",
       });
     })
-    .catch(err => console.log(err));
+    .catch(err => {
+      return next(new CustomError(err.message));
+    });
 };
 
 exports.getIndex = (req, res, next) => {
@@ -60,7 +65,9 @@ exports.getIndex = (req, res, next) => {
         lastPage: Math.ceil(totalItems / ITEMS_PER_PAGE),
       });
     })
-    .catch(err => console.log(err));
+    .catch(err => {
+      return next(new CustomError(err.message));
+    });
 };
 
 exports.getCart = (req, res, next) => {
@@ -74,7 +81,9 @@ exports.getCart = (req, res, next) => {
         products: products,
       });
     })
-    .catch(err => console.log(err));
+    .catch(err => {
+      return next(new CustomError(err.message));
+    });
 };
 
 exports.postCart = (req, res, next) => {
@@ -95,7 +104,9 @@ exports.postCartDeleteProduct = (req, res, next) => {
     .then(result => {
       res.redirect("/cart");
     })
-    .catch(err => console.log(err));
+    .catch(err => {
+      return next(new CustomError(err.message));
+    });
 };
 
 exports.getOrders = (req, res, next) => {
@@ -109,10 +120,61 @@ exports.getOrders = (req, res, next) => {
         orders: orders,
       });
     })
-    .catch(err => console.log(err));
+    .catch(err => {
+      return next(new CustomError(err.message));
+    });
 };
 
-exports.postOrder = (req, res, next) => {
+exports.getCheckout = (req, res, next) => {
+  let products;
+  let total = 0;
+  req.user
+    .populate("cart.items.productId")
+    .then(user => {
+      products = user.cart.items;
+      total = 0;
+      products.forEach(p => {
+        total += p.quantity * p.productId.price;
+      });
+
+      return stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        mode: "payment",
+        line_items: products.map(p => {
+          return {
+            quantity: p.quantity,
+            price_data: {
+              currency: "usd",
+              unit_amount: p.productId.price * 100,
+              product_data: {
+                name: p.productId.title,
+                description: p.productId.description,
+              },
+            },
+          };
+        }),
+        customer_email: req.user.email,
+        success_url:
+          req.protocol + "://" + req.get("host") + "/checkout/success",
+        cancel_url: req.protocol + "://" + req.get("host") + "/checkout/cancel",
+      });
+    })
+    .then(session => {
+      res.render("shop/checkout", {
+        path: "/checkout",
+        pageTitle: "Checkout",
+        products: products,
+        totalSum: total,
+        sessionId: session.id,
+        stripePublicKey: process.env.STRIPE_PUBLIC_KEY,
+      });
+    })
+    .catch(err => {
+      return next(new CustomError(err.message));
+    });
+};
+
+exports.getCheckoutSuccess = (req, res, next) => {
   req.user
     .populate("cart.items.productId")
     .then(user => {
@@ -134,7 +196,9 @@ exports.postOrder = (req, res, next) => {
     .then(() => {
       res.redirect("/orders");
     })
-    .catch(err => console.log(err));
+    .catch(err => {
+      return next(new CustomError(err.message));
+    });
 };
 
 exports.getInvoice = (req, res, next) => {
@@ -194,5 +258,7 @@ exports.getInvoice = (req, res, next) => {
       //   }
       // });
     })
-    .catch(err => next(err));
+    .catch(err => {
+      return next(new CustomError(err.message));
+    });
 };
