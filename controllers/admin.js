@@ -152,8 +152,8 @@ exports.getProducts = (req, res, next) => {
     });
 };
 
-exports.postDeleteProduct = (req, res, next) => {
-  const prodId = req.body.productId;
+exports.deleteProduct = (req, res, next) => {
+  const prodId = req.params.productId;
   let pathImgUrl;
   Product.findById(prodId)
     .then(prod => {
@@ -172,9 +172,13 @@ exports.postDeleteProduct = (req, res, next) => {
     .then(() => {
       fileHelper.deleteFile(pathImgUrl);
       console.log("PRODUCT DELETED!");
-      res.redirect("/admin/products");
+      res.status(200).json({
+        message: "Success!",
+      });
     })
     .catch(err => {
-      return next(new CustomError(err.message));
+      res.status(500).json({
+        message: "Deleting product failed",
+      });
     });
 };
